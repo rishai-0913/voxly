@@ -1,0 +1,64 @@
+# ── System ────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+*.swp
+*.swo
+
+# ── Environment & secrets ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── Node / Expo (mobile/) ─────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+
+# Expo
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+
+# ── Python / FastAPI (backend/) ───────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+
+# Virtual environments
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+env/
+
+# Build / dist
+backend/build/
+backend/dist/
+backend/*.egg-info/
+
+# ── Docker ────────────────────────────────────────────────────
+*.log
+
+# ── Uploads / temp audio ──────────────────────────────────────
+backend/uploads/
+*.m4a
+*.mp3
+*.wav
+*.aac
+*.ogg
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
