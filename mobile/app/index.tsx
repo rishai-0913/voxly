@@ -81,7 +81,7 @@ export default function SplashScreen() {
         if (token) {
           router.replace("/home");
         } else {
-          router.replace("/auth/phone");
+          router.replace("/auth/email");
         }
       });
     } else {

@@ -70,7 +70,7 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: async () => {
           await signOut();
-          router.replace("/auth/phone");
+          router.replace("/auth/email");
         },
       },
     ]);
@@ -138,16 +138,15 @@ export default function SettingsScreen() {
 
           <View style={divider} />
 
-          {/* Phone row */}
+          {/* Email row */}
           <View style={row}>
             <View style={iconWrap}>
-              <Ionicons name="phone-portrait-outline" size={18} color="#6B7280" />
+              <Ionicons name="mail-outline" size={18} color="#6B7280" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={rowLabel}>Phone Number</Text>
-              <Text style={rowValue}>{user?.phone ?? profile?.phone ?? "—"}</Text>
+              <Text style={rowLabel}>Email</Text>
+              <Text style={rowValue}>{user?.email ?? "—"}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#4B5563" />
           </View>
         </View>
 

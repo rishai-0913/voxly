@@ -1,20 +1,18 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import * as SecureStore from "expo-secure-store";
 import { setAuthToken } from "../services/api";
 
-const TOKEN_KEY = "voxly_token";
+const TOKEN_KEY = "voxly_access_token";
+const REFRESH_KEY = "voxly_refresh_token";
 const USER_KEY = "voxly_user";
 
-type User = {
-  id: string;
-  phone: string;
-};
+export type AuthUser = { id: string; email: string };
 
 type AuthCtx = {
   token: string | null;
-  user: User | null;
+  user: AuthUser | null;
   isLoading: boolean;
-  signIn: (token: string, user: User) => Promise<void>;
+  signIn: (accessToken: string, refreshToken: string, user: AuthUser) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -26,9 +24,9 @@ const AuthContext = createContext<AuthCtx>({
   signOut: async () => {},
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -48,19 +46,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const signIn = useCallback(async (newToken: string, newUser: User) => {
+  const signIn = useCallback(async (accessToken: string, refreshToken: string, newUser: AuthUser) => {
     await Promise.all([
-      SecureStore.setItemAsync(TOKEN_KEY, newToken),
+      SecureStore.setItemAsync(TOKEN_KEY, accessToken),
+      SecureStore.setItemAsync(REFRESH_KEY, refreshToken),
       SecureStore.setItemAsync(USER_KEY, JSON.stringify(newUser)),
     ]);
-    setAuthToken(newToken);
-    setToken(newToken);
+    setAuthToken(accessToken);
+    setToken(accessToken);
     setUser(newUser);
   }, []);
 
   const signOut = useCallback(async () => {
     await Promise.all([
       SecureStore.deleteItemAsync(TOKEN_KEY),
+      SecureStore.deleteItemAsync(REFRESH_KEY),
       SecureStore.deleteItemAsync(USER_KEY),
     ]);
     setAuthToken(null);

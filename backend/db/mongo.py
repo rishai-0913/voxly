@@ -59,49 +59,8 @@ async def search_notes(query: str, user_id: str) -> list[dict]:
     return [_serialize(d) async for d in cursor]
 
 
-def users_col():
-    return get_db()["users"]
-
-
-async def find_user_by_phone(phone: str) -> dict | None:
-    doc = await users_col().find_one({"phone": phone})
-    return _serialize(doc) if doc else None
-
-
-async def find_user_by_id(user_id: str) -> dict | None:
-    doc = await users_col().find_one({"_id": ObjectId(user_id)})
-    return _serialize(doc) if doc else None
-
-
-async def update_user_password(phone: str, password_hash: str) -> dict:
-    await users_col().update_one({"phone": phone}, {"$set": {"password_hash": password_hash}})
-    doc = await users_col().find_one({"phone": phone})
-    return _serialize(doc)
-
-
-async def create_user(phone: str, password_hash: str) -> dict:
-    data = {
-        "phone": phone,
-        "password_hash": password_hash,
-        "name": "",
-        "summary_style": "concise",
-        "created_at": datetime.now(timezone.utc),
-    }
-    result = await users_col().insert_one(data)
-    doc = await users_col().find_one({"_id": result.inserted_id})
-    return _serialize(doc)
-
-
-async def update_user_profile(user_id: str, data: dict) -> dict:
-    allowed = {k: v for k, v in data.items() if k in ("name", "summary_style")}
-    await users_col().update_one({"_id": ObjectId(user_id)}, {"$set": allowed})
-    doc = await users_col().find_one({"_id": ObjectId(user_id)})
-    return _serialize(doc)
-
-
 async def ensure_indexes():
     await notes_col().create_index(
         [("title", "text"), ("summary", "text"), ("transcript", "text")],
         name="full_text_search",
     )
-    await users_col().create_index("phone", unique=True)

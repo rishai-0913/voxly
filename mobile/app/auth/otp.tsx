@@ -1,23 +1,20 @@
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, TextInput, Pressable, ActivityIndicator,
+  KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useState, useRef, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { verifyOtp, sendOtp } from "../../services/api";
+import { useAuth } from "../../contexts/auth";
 
 const CODE_LENGTH = 6;
 
 export default function OtpScreen() {
   const insets = useSafeAreaInsets();
-  const { phone, mode } = useLocalSearchParams<{ phone: string; mode: string }>();
+  const { email } = useLocalSearchParams<{ email: string }>();
+  const { signIn } = useAuth();
 
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
@@ -28,7 +25,6 @@ export default function OtpScreen() {
   const code = digits.join("");
   const isComplete = code.length === CODE_LENGTH;
 
-  // Countdown for resend button
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const t = setTimeout(() => setResendCooldown((v) => v - 1), 1000);
@@ -57,9 +53,10 @@ export default function OtpScreen() {
     setError("");
     setLoading(true);
     try {
-      await verifyOtp(phone!, code);
-      router.push({ pathname: "/auth/set-password", params: { phone, mode: mode ?? "register" } });
-    } catch (e: any) {
+      const result = await verifyOtp(email!, code);
+      await signIn(result.access_token, result.refresh_token, result.user);
+      router.replace("/home");
+    } catch {
       setError("Incorrect code. Please try again.");
       setDigits(Array(CODE_LENGTH).fill(""));
       setTimeout(() => inputRefs.current[0]?.focus(), 50);
@@ -73,7 +70,7 @@ export default function OtpScreen() {
     setError("");
     setResendCooldown(30);
     try {
-      await sendOtp(phone!);
+      await sendOtp(email!);
     } catch {
       setError("Couldn't resend code. Try again.");
     }
@@ -85,34 +82,26 @@ export default function OtpScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={{ flex: 1, paddingTop: insets.top + 16 }}>
-        {/* Back button */}
         <Pressable
           onPress={() => router.back()}
-          style={({ pressed }) => ({
-            marginHorizontal: 20,
-            marginBottom: 40,
-            width: 40,
-            height: 40,
-            borderRadius: 12,
+          style={{
+            marginHorizontal: 20, marginBottom: 40,
+            width: 40, height: 40, borderRadius: 12,
             backgroundColor: "#1A1D27",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: pressed ? 0.65 : 1,
-          })}
+            alignItems: "center", justifyContent: "center",
+          }}
         >
           <Ionicons name="arrow-back" size={20} color="#F0F2FF" />
         </Pressable>
 
         <View style={{ flex: 1, paddingHorizontal: 24 }}>
-          {/* Heading */}
           <Text style={{ fontFamily: "Syne_700Bold", fontSize: 30, color: "#F0F2FF", marginBottom: 8 }}>
             Enter the code
           </Text>
           <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 15, color: "#6B7280", marginBottom: 36 }}>
-            Sent to {phone}
+            Sent to {email}
           </Text>
 
-          {/* 6-digit boxes */}
           <View style={{ flexDirection: "row", gap: 10, marginBottom: 24 }}>
             {digits.map((d, i) => (
               <TextInput
@@ -125,20 +114,12 @@ export default function OtpScreen() {
                 maxLength={1}
                 selectTextOnFocus
                 style={{
-                  flex: 1,
-                  aspectRatio: 1,
+                  flex: 1, aspectRatio: 1,
                   backgroundColor: "#1A1D27",
-                  borderRadius: 14,
-                  borderWidth: 1.5,
-                  borderColor: error
-                    ? "rgba(239,68,68,0.5)"
-                    : d
-                    ? "#7B5CFA"
-                    : "rgba(123,92,250,0.2)",
+                  borderRadius: 14, borderWidth: 1.5,
+                  borderColor: error ? "rgba(239,68,68,0.5)" : d ? "#7B5CFA" : "rgba(123,92,250,0.2)",
                   textAlign: "center",
-                  fontFamily: "Syne_700Bold",
-                  fontSize: 22,
-                  color: "#F0F2FF",
+                  fontFamily: "Syne_700Bold", fontSize: 22, color: "#F0F2FF",
                 }}
               />
             ))}
@@ -150,41 +131,29 @@ export default function OtpScreen() {
             </Text>
           ) : null}
 
-          {/* Verify button */}
           <Pressable
             onPress={handleVerify}
             disabled={!isComplete || loading}
             style={{
               backgroundColor: isComplete ? "#7B5CFA" : "#2A2D3A",
-              borderRadius: 14,
-              paddingVertical: 17,
-              alignItems: "center",
+              borderRadius: 14, paddingVertical: 17, alignItems: "center",
             }}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={{
-                fontFamily: "DMSans_500Medium",
-                fontSize: 17,
-                color: isComplete ? "#FFFFFF" : "#4B5563",
-              }}>
+              <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 17, color: isComplete ? "#FFFFFF" : "#4B5563" }}>
                 Verify
               </Text>
             )}
           </Pressable>
 
-          {/* Resend */}
           <Pressable
             onPress={handleResend}
             disabled={resendCooldown > 0}
-            style={({ pressed }) => ({ alignSelf: "center", marginTop: 24, opacity: pressed ? 0.65 : 1 })}
+            style={{ alignSelf: "center", marginTop: 24 }}
           >
-            <Text style={{
-              fontFamily: "DMSans_400Regular",
-              fontSize: 14,
-              color: resendCooldown > 0 ? "#4B5563" : "#7B5CFA",
-            }}>
+            <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 14, color: resendCooldown > 0 ? "#4B5563" : "#7B5CFA" }}>
               {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}
             </Text>
           </Pressable>

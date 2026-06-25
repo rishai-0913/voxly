@@ -1,233 +1,216 @@
 # Voxly — Deployment Guide
 
-Three independent deployments: **Backend** (FastAPI on Railway), **iOS** (App Store via EAS), **Android** (Play Store via EAS).
+---
+
+## Architecture Overview
+
+| Layer | Service |
+|---|---|
+| Auth | Supabase (email OTP — no Twilio needed) |
+| User profiles | Supabase PostgreSQL |
+| Notes | MongoDB Atlas |
+| AI / Transcription | Groq (LLaMA 3.3 70B) |
+| Backend API | FastAPI on Render |
+| Mobile | Expo (React Native) |
 
 ---
 
-## Overview
+## Auth Flow
 
-| Target | Tool | Cost | Time |
-|--------|------|------|------|
-| Backend | Railway | Free tier / ~$5/mo | 15 min |
-| iOS App Store | EAS Build + Submit | Free EAS + $99/yr Apple Developer | 2–4 hrs (first time) |
-| Android Play Store | EAS Build + Submit | Free EAS + $25 one-time | 1–2 hrs (first time) |
+```
+Enter email → Supabase sends 6-digit OTP to email → Verify code → Logged in
+```
 
-**Easiest path:** Deploy backend first → test on device → then submit to stores.
+All users go through the same flow — no passwords, no phone numbers, no Twilio.
 
 ---
 
-## Part 1 — Backend (FastAPI on Railway)
+## 1. Supabase Setup
 
-### Prerequisites
-- GitHub account with the Voxly repo pushed
-- [Railway account](https://railway.app) (free)
-- MongoDB Atlas cluster already running
+### 1.1 Create project
+1. Go to [supabase.com](https://supabase.com) → **New project**
+2. Name: `voxly`, pick a region close to users (e.g. `ap-south-1` for India)
+3. Set a database password and save it
+4. Wait ~2 min for provisioning
 
-### Steps
+### 1.2 Enable Email OTP
+1. **Authentication → Providers → Email** — enabled by default
+2. **Authentication → Email Templates** — optionally customise the OTP email
+3. **Authentication → Settings**:
+   - Make sure **Enable email confirmations** is ON
+   - Set **OTP expiry** (default 1 hour is fine)
+   - Optionally set **Rate limits** for OTP emails
 
-**1. Push backend to GitHub** (if not already done)
-```bash
-git add . && git commit -m "deploy: add backend"
-git push origin main
+> Supabase's free tier includes 3,000 auth emails/month. No external email provider needed.
+
+### 1.3 Create profiles table
+Run in **Supabase Dashboard → SQL Editor → New query**:
+
+```sql
+-- User profiles linked to auth users
+create table public.profiles (
+  id uuid references auth.users on delete cascade primary key,
+  name text default '',
+  summary_style text default 'concise',
+  email text,
+  updated_at timestamptz default now()
+);
+
+-- Enable row-level security
+alter table public.profiles enable row level security;
+
+-- Policies
+create policy "Users can view own profile"
+  on public.profiles for select
+  using (auth.uid() = id);
+
+create policy "Users can insert own profile"
+  on public.profiles for insert
+  with check (auth.uid() = id);
+
+create policy "Users can update own profile"
+  on public.profiles for update
+  using (auth.uid() = id);
+
+-- Auto-create profile row when a user signs up
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email)
+  values (new.id, new.email);
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 ```
 
-**2. Create Railway project**
-1. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub repo
-2. Select your `voxly` repo
-3. Railway auto-detects the `Dockerfile` in `backend/` — set **Root Directory** to `backend`
+### 1.4 Get your keys
+**Supabase Dashboard → Settings → API**:
 
-**3. Add environment variables** in Railway dashboard → Variables:
-```
-GROQ_API_KEY=gsk_your_key_here
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/voxly
-```
-
-**4. Set the port**
-Railway auto-assigns a port via `$PORT`. Update `backend/main.py` startup or add:
-```
-PORT=8020
-```
-
-Or update the Dockerfile `CMD`:
-```dockerfile
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "${PORT:-8020}"]
-```
-
-**5. Deploy**
-Railway deploys automatically on every push to `main`. Your backend URL will be something like:
-```
-https://voxly-backend-production.up.railway.app
-```
-
-**6. Update mobile API URL**
-In `mobile/.env`:
-```env
-EXPO_PUBLIC_API_URL=https://voxly-backend-production.up.railway.app
-```
-
-**Verify:** Visit `https://your-url.railway.app/health` → should return `{"status": "ok"}`
+| Key | Where used |
+|---|---|
+| Project URL | Mobile `.env` → `EXPO_PUBLIC_SUPABASE_URL` |
+| `anon` public key | Mobile `.env` → `EXPO_PUBLIC_SUPABASE_ANON_KEY` |
+| JWT Secret | Backend `.env` → `SUPABASE_JWT_SECRET` (under **JWT Settings** section) |
 
 ---
 
-## Part 2 — iOS App Store
+## 2. MongoDB Atlas Setup
 
-### Prerequisites
-- Mac with Xcode installed (Xcode 15+)
-- [Apple Developer Account](https://developer.apple.com) — $99/year
-- App created in [App Store Connect](https://appstoreconnect.apple.com)
+### 2.1 Whitelist all IPs (required for Render)
+1. MongoDB Atlas → **Network Access** → **Add IP Address**
+2. Click **Allow Access from Anywhere** → `0.0.0.0/0`
+3. Save
 
-### One-time setup
+Notes collection stays in MongoDB, keyed by Supabase user UUID.
 
-**1. Install EAS CLI**
-```bash
-npm install -g eas-cli
-eas login
+---
+
+## 3. Backend (Render) Setup
+
+### 3.1 Connect repo to Render
+1. [render.com](https://render.com) → **New → Web Service**
+2. Connect your GitHub repo
+3. Settings:
+   - **Runtime**: Docker
+   - **Dockerfile path**: `./backend/Dockerfile`
+   - **Docker context**: `./backend`
+
+### 3.2 Environment variables
+Set these in Render dashboard → **Environment**:
+
+```
+GROQ_API_KEY=<your groq key>
+MONGODB_URI=<your atlas URI>
+SUPABASE_JWT_SECRET=<from supabase settings → api → jwt settings>
+APP_ENV=production
+MAX_AUDIO_DURATION_SECONDS=300
 ```
 
-**2. Configure EAS in the project**
+> Twilio vars are no longer needed — Supabase handles all auth.
+
+### 3.3 Deploy
+Hit **Deploy**. Build takes ~2 min. You'll get a URL like:
+`https://voxly-backend.onrender.com`
+
+**Verify:** `GET https://voxly-backend.onrender.com/health` → `{"status": "ok"}`
+
+---
+
+## 4. Mobile App Setup
+
+### 4.1 Install Supabase
 ```bash
 cd mobile
-eas build:configure
+npx expo install @supabase/supabase-js react-native-url-polyfill
 ```
-This creates `eas.json` — accept defaults.
 
-**3. Update `mobile/app.json`**
-```json
-{
-  "expo": {
-    "name": "Voxly",
-    "slug": "voxly",
-    "version": "1.0.0",
-    "ios": {
-      "bundleIdentifier": "com.yourname.voxly",
-      "buildNumber": "1"
-    }
-  }
-}
+### 4.2 Environment config
+Create `mobile/.env`:
 ```
-> `bundleIdentifier` must match exactly what you create in App Store Connect.
+EXPO_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+EXPO_PUBLIC_API_URL=https://voxly-backend.onrender.com
+```
 
-**4. Create app in App Store Connect**
-1. Go to [appstoreconnect.apple.com](https://appstoreconnect.apple.com)
-2. My Apps → + → New App
-3. Platform: iOS, Name: Voxly, Bundle ID: `com.yourname.voxly`
-4. Fill in description, screenshots (you can use simulator screenshots), category: Productivity
+---
 
-### Build & Submit
+## 5. Code Migration Summary
 
-**Build for App Store:**
+### Backend
+- Remove `services/auth.py`
+- Remove auth endpoints: `check-phone`, `send-otp`, `verify-otp`, `login`, `register`, `reset-password`
+- Remove user functions from `db/mongo.py`: `create_user`, `get_user_by_phone`, `update_user_profile`
+- Update `current_user` dependency → verify Supabase JWT with `PyJWT`
+- Add `supabase-py` for profile reads/writes (or use direct DB queries)
+- Remove from `requirements.txt`: `twilio`, `python-jose`, `passlib[bcrypt]`, `bcrypt`
+
+### Mobile
+- Add `lib/supabase.ts` — Supabase client
+- Update `contexts/auth.tsx` — use Supabase session
+- Replace `auth/phone.tsx` → `auth/email.tsx` — email input, calls `supabase.auth.signInWithOtp({ email })`
+- Update `auth/otp.tsx` — calls `supabase.auth.verifyOtp({ email, token, type: 'email' })`
+- Delete `auth/login.tsx` and `auth/set-password.tsx`
+- Update `services/api.ts` — remove custom auth functions, read token from Supabase session
+
+---
+
+## 6. App Store Deployment
+
+### Prerequisites
+- Apple Developer Account ($99/yr) for iOS
+- Google Play Developer Account ($25 one-time) for Android
+- EAS CLI: `npm install -g eas-cli && eas login`
+
+### iOS
 ```bash
 cd mobile
 eas build --platform ios --profile production
-```
-EAS handles certificates and provisioning profiles automatically. Build takes ~10-15 min in the cloud.
-
-**Submit to App Store:**
-```bash
 eas submit --platform ios
 ```
-EAS uploads the `.ipa` directly to App Store Connect.
 
-**Then in App Store Connect:**
-1. Go to your app → TestFlight (to test) or Pricing & Availability → Submit for Review
-2. Apple review takes 1–3 days
-
----
-
-## Part 3 — Android Play Store
-
-### Prerequisites
-- [Google Play Developer Account](https://play.google.com/console) — $25 one-time fee
-- App created in Play Console
-
-### One-time setup
-
-**1. Update `mobile/app.json`**
-```json
-{
-  "expo": {
-    "android": {
-      "package": "com.yourname.voxly",
-      "versionCode": 1
-    }
-  }
-}
-```
-
-**2. Create app in Play Console**
-1. Go to [play.google.com/console](https://play.google.com/console) → Create app
-2. App name: Voxly, Default language: English, App/Game: App, Free/Paid
-3. Fill in store listing — description, screenshots, content rating
-
-### Build & Submit
-
-**Build for Play Store:**
+### Android
 ```bash
 cd mobile
 eas build --platform android --profile production
-```
-Generates a signed `.aab` (Android App Bundle). EAS manages the keystore automatically — **download and back up your keystore** from the EAS dashboard.
-
-**Submit to Play Store:**
-```bash
 eas submit --platform android
 ```
-> First submission must be done manually in Play Console (upload the `.aab` yourself). After that, `eas submit` can handle it automatically.
-
-**In Play Console:**
-1. Upload the `.aab` under Release → Production (or Internal Testing first)
-2. Complete the content rating questionnaire
-3. Set pricing (free)
-4. Submit for review — Android review takes a few hours to 3 days
 
 ---
 
-## `eas.json` Reference
+## 7. Pre-Launch Checklist
 
-After running `eas build:configure`, your `mobile/eas.json` should look like:
-
-```json
-{
-  "cli": {
-    "version": ">= 10.0.0"
-  },
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
-      "distribution": "internal"
-    },
-    "production": {}
-  },
-  "submit": {
-    "production": {}
-  }
-}
-```
-
----
-
-## Update & Re-release Workflow
-
-**Backend:** Push to `main` → Railway auto-deploys.
-
-**Mobile (new version):**
-1. Bump `version` in `app.json` + `buildNumber` (iOS) / `versionCode` (Android)
-2. `eas build --platform all --profile production`
-3. `eas submit --platform all`
-
----
-
-## Checklist Before Submitting to Stores
-
-- [ ] Backend deployed and `/health` returning OK
-- [ ] `EXPO_PUBLIC_API_URL` set to production backend URL in `.env`
-- [ ] App icon set in `app.json` (1024×1024 PNG, no alpha)
-- [ ] Splash screen configured
+- [ ] Supabase project created, email auth enabled
+- [ ] `profiles` table and trigger created via SQL editor
+- [ ] MongoDB Atlas IP whitelist set to `0.0.0.0/0`
+- [ ] Backend deployed to Render, `/health` returning OK
+- [ ] All env vars set in Render dashboard
+- [ ] Mobile `.env` has Supabase URL, anon key, and backend URL
+- [ ] Test OTP flow end-to-end with real email on physical iPhone
+- [ ] Test note recording, transcription, and summary styles
+- [ ] App icon + splash screen set in `app.json`
 - [ ] Privacy policy URL ready (required by both stores)
-- [ ] Screenshots prepared (iPhone 6.7" + 6.5" for iOS, phone + tablet for Android)
-- [ ] App description written
-- [ ] Content rating completed (Android)
 - [ ] TestFlight / Internal Testing done before production release

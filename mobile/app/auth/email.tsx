@@ -1,49 +1,32 @@
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  View, Text, TextInput, Pressable, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ScrollView,
 } from "react-native";
 import { useState, useRef } from "react";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { checkPhone, sendOtp } from "../../services/api";
+import { sendOtp } from "../../services/api";
 
-const COUNTRY_CODE = "+91";
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
 
-export default function PhoneScreen() {
+export default function EmailScreen() {
   const insets = useSafeAreaInsets();
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<TextInput>(null);
 
-  const formatted = phone.replace(/\D/g, "").slice(0, 10);
-  const isValid = formatted.length === 10;
-
-  function formatDisplay(raw: string) {
-    const d = raw.replace(/\D/g, "").slice(0, 10);
-    if (d.length <= 5) return d;
-    return `${d.slice(0, 5)} ${d.slice(5)}`;
-  }
+  const isValid = isValidEmail(email);
 
   async function handleContinue() {
     if (!isValid || loading) return;
     setError("");
     setLoading(true);
-    const fullPhone = `${COUNTRY_CODE}${formatted}`;
     try {
-      const { exists } = await checkPhone(fullPhone);
-      if (exists) {
-        router.push({ pathname: "/auth/login", params: { phone: fullPhone } });
-      } else {
-        await sendOtp(fullPhone);
-        router.push({ pathname: "/auth/otp", params: { phone: fullPhone, mode: "register" } });
-      }
+      await sendOtp(email.trim().toLowerCase());
+      router.push({ pathname: "/auth/otp", params: { email: email.trim().toLowerCase() } });
     } catch (e: any) {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -61,7 +44,7 @@ export default function PhoneScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={{ flex: 1, paddingHorizontal: 24 }}>
-          {/* Logo mark */}
+          {/* Logo */}
           <View style={{ alignItems: "center", marginBottom: 48 }}>
             <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, marginBottom: 10 }}>
               {[18, 28, 22, 14, 20].map((h, i) => (
@@ -73,55 +56,31 @@ export default function PhoneScreen() {
             </Text>
           </View>
 
-          {/* Heading */}
           <Text style={{ fontFamily: "Syne_700Bold", fontSize: 30, color: "#F0F2FF", marginBottom: 8 }}>
-            What's your number?
+            What's your email?
           </Text>
           <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 15, color: "#6B7280", marginBottom: 36 }}>
-            Enter your number to sign in or create an account.
+            We'll send you a one-time code to sign in.
           </Text>
 
-          {/* Input row */}
-          <Pressable
-            onPress={() => inputRef.current?.focus()}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: "#1A1D27",
-              borderRadius: 14,
-              borderWidth: 1.5,
-              borderColor: error ? "rgba(239,68,68,0.5)" : "rgba(123,92,250,0.25)",
-              marginBottom: 12,
-              overflow: "hidden",
-            }}
-          >
-            {/* Country code badge */}
-            <View style={{
-              paddingHorizontal: 16,
-              paddingVertical: 18,
-              borderRightWidth: 1,
-              borderRightColor: "rgba(255,255,255,0.07)",
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-            }}>
-              <Text style={{ fontSize: 18 }}>🇮🇳</Text>
-              <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 16, color: "#F0F2FF" }}>
-                {COUNTRY_CODE}
-              </Text>
-            </View>
-
-            {/* Number input */}
+          <View style={{
+            flexDirection: "row",
+            alignItems: "center",
+            backgroundColor: "#1A1D27",
+            borderRadius: 14,
+            borderWidth: 1.5,
+            borderColor: error ? "rgba(239,68,68,0.5)" : "rgba(123,92,250,0.25)",
+            marginBottom: 12,
+          }}>
             <TextInput
               ref={inputRef}
-              value={formatDisplay(phone)}
-              onChangeText={(t) => {
-                setError("");
-                setPhone(t.replace(/\D/g, "").slice(0, 10));
-              }}
-              placeholder="98765 43210"
+              value={email}
+              onChangeText={(t) => { setError(""); setEmail(t); }}
+              placeholder="you@example.com"
               placeholderTextColor="#4B5563"
-              keyboardType="phone-pad"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
               returnKeyType="done"
               onSubmitEditing={handleContinue}
               style={{
@@ -133,16 +92,14 @@ export default function PhoneScreen() {
                 color: "#F0F2FF",
               }}
             />
-          </Pressable>
+          </View>
 
-          {/* Inline error */}
           {error ? (
             <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: "#EF4444", marginBottom: 16 }}>
               {error}
             </Text>
           ) : null}
 
-          {/* Continue button */}
           <Pressable
             onPress={handleContinue}
             disabled={!isValid || loading}
@@ -157,18 +114,13 @@ export default function PhoneScreen() {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={{
-                fontFamily: "DMSans_500Medium",
-                fontSize: 17,
-                color: isValid ? "#FFFFFF" : "#4B5563",
-              }}>
+              <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 17, color: isValid ? "#FFFFFF" : "#4B5563" }}>
                 Continue
               </Text>
             )}
           </Pressable>
         </View>
 
-        {/* Terms */}
         <Text style={{
           textAlign: "center",
           fontFamily: "DMSans_400Regular",
