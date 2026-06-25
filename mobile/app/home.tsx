@@ -326,27 +326,40 @@ export default function HomeScreen() {
         }}
       >
         {/* Recents (active) */}
-        <View style={{ flex: 1, alignItems: "center", gap: 3 }}>
-          <Ionicons name="time" size={22} color="#7B5CFA" />
-          <Text
-            style={{ fontSize: 10, color: "#7B5CFA", fontFamily: "SpaceMono_400Regular", letterSpacing: 1, textTransform: "uppercase" }}
-          >
+        <View style={{ flex: 1, alignItems: "center", gap: 5 }}>
+          <View style={{
+            width: 48, height: 32, borderRadius: 16,
+            backgroundColor: "rgba(123,92,250,0.15)",
+            alignItems: "center", justifyContent: "center",
+          }}>
+            <Ionicons name="time" size={20} color="#7B5CFA" />
+          </View>
+          <Text style={{ fontSize: 11, color: "#7B5CFA", fontFamily: "DMSans_500Medium" }}>
             Recents
           </Text>
         </View>
 
         {/* Center spacer for FAB */}
-        <View style={{ width: 72 }} />
+        <View style={{ width: 88 }} />
 
-        {/* Library */}
-        <Pressable style={{ flex: 1, alignItems: "center", gap: 3 }}>
-          <Ionicons name="folder-outline" size={22} color="#6B7280" />
-          <Text
-            style={{ fontSize: 10, color: "#6B7280", fontFamily: "SpaceMono_400Regular", letterSpacing: 1, textTransform: "uppercase" }}
+        {/* Settings */}
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Pressable
+            onPress={() => router.push("/settings")}
+            style={{ alignItems: "center", gap: 5 }}
           >
-            Library
-          </Text>
-        </Pressable>
+            <View style={{
+              width: 48, height: 32, borderRadius: 16,
+              backgroundColor: "transparent",
+              alignItems: "center", justifyContent: "center",
+            }}>
+              <Ionicons name="settings-outline" size={20} color="#6B7280" />
+            </View>
+            <Text style={{ fontSize: 11, color: "#6B7280", fontFamily: "DMSans_500Medium" }}>
+              Settings
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );

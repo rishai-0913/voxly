@@ -7,6 +7,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import "../global.css";
 import { ThemeProvider, useTheme } from "../contexts/theme";
+import { AuthProvider } from "../contexts/auth";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,8 +42,10 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <ThemeProvider>
-      <RootLayoutInner />
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <RootLayoutInner />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

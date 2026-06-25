@@ -4,11 +4,13 @@ import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Logo from "../components/Logo";
 import { BASE_URL } from "../services/api";
+import { useAuth } from "../contexts/auth";
 
 type ApiStatus = "checking" | "ok" | "error";
 
 export default function SplashScreen() {
   const insets = useSafeAreaInsets();
+  const { token, isLoading: authLoading } = useAuth();
 
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
   const [animDone, setAnimDone] = useState(false);
@@ -65,9 +67,9 @@ export default function SplashScreen() {
 
   useEffect(() => { checkHealth(); }, [checkHealth]);
 
-  // Navigate or show error once animation is done AND API has responded
+  // Navigate or show error once animation is done AND API has responded AND auth loaded
   useEffect(() => {
-    if (!animDone || apiStatus === "checking") return;
+    if (!animDone || apiStatus === "checking" || authLoading) return;
 
     if (apiStatus === "ok") {
       Animated.timing(containerOpacity, {
@@ -75,7 +77,13 @@ export default function SplashScreen() {
         duration: 280,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
-      }).start(() => router.replace("/home"));
+      }).start(() => {
+        if (token) {
+          router.replace("/home");
+        } else {
+          router.replace("/auth/phone");
+        }
+      });
     } else {
       Animated.parallel([
         Animated.timing(errorOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
