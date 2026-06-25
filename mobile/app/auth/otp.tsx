@@ -33,7 +33,17 @@ export default function OtpScreen() {
 
   function handleDigitChange(value: string, index: number) {
     setError("");
-    const digit = value.replace(/\D/g, "").slice(-1);
+    const cleaned = value.replace(/\D/g, "");
+    if (cleaned.length > 1) {
+      const next = Array(CODE_LENGTH).fill("");
+      cleaned.split("").forEach((d, i) => {
+        if (i < CODE_LENGTH) next[i] = d;
+      });
+      setDigits(next);
+      inputRefs.current[Math.min(cleaned.length - 1, CODE_LENGTH - 1)]?.focus();
+      return;
+    }
+    const digit = cleaned.slice(-1);
     const next = [...digits];
     next[index] = digit;
     setDigits(next);
@@ -111,7 +121,8 @@ export default function OtpScreen() {
                 onChangeText={(v) => handleDigitChange(v, i)}
                 onKeyPress={(e) => handleKeyPress(e, i)}
                 keyboardType="number-pad"
-                maxLength={1}
+                textContentType="oneTimeCode"
+                maxLength={6}
                 selectTextOnFocus
                 style={{
                   flex: 1, aspectRatio: 1,

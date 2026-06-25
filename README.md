@@ -4,7 +4,7 @@
 
 Voxly is an iOS voice notes app that converts recordings into clean, AI-structured notes. Speak freely — the app handles transcription, summarisation, key points, action items, and tags automatically.
 
-**Built with:** React Native + Expo · FastAPI · Groq Whisper · LLaMA 3.3 · MongoDB Atlas  
+**Built with:** React Native + Expo · FastAPI · Groq Whisper · LLaMA 3.3 · MongoDB Atlas · Supabase · Resend  
 **Cost to run:** $0 (all free tiers)
 
 ---
@@ -46,12 +46,14 @@ Voxly is an iOS voice notes app that converts recordings into clean, AI-structur
 |-------|-----------|
 | Mobile | React Native + Expo SDK 54 |
 | Routing | Expo Router 6 |
-| Styling | NativeWind v4 (Tailwind for RN) |
-| Backend | FastAPI (Python 3.11) |
+| Backend | FastAPI (Python 3.12) |
+| Auth | Supabase (email OTP, backend-only) |
+| Email | Resend (custom SMTP via Supabase) |
 | Transcription | Groq Whisper (`whisper-large-v3`) |
 | Summarisation | Groq LLaMA 3.3 70B Versatile |
 | Database | MongoDB Atlas + Motor (async) |
 | Containerisation | Docker + docker-compose |
+| Hosting | Render (free tier) |
 
 ---
 
@@ -60,11 +62,14 @@ Voxly is an iOS voice notes app that converts recordings into clean, AI-structur
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Python 3.11+
-- Docker (optional, for backend)
+- Docker (for backend)
 - [Expo Go](https://expo.dev/go) on your iPhone
 - [Groq API key](https://console.groq.com) (free)
 - [MongoDB Atlas](https://cloud.mongodb.com) connection string (free)
+- [Supabase](https://supabase.com) project with email OTP configured
+- [Resend](https://resend.com) account + verified domain (for email delivery)
+
+See [docs/deployment.md](docs/deployment.md) for full setup instructions.
 
 ### 1. Clone & configure
 
@@ -77,13 +82,17 @@ Create `backend/.env`:
 
 ```env
 GROQ_API_KEY=gsk_your_key_here
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/voxly
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/?appName=voxly
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_SERVICE_KEY=eyJ...   # legacy service_role key from Supabase dashboard
+APP_ENV=development
+MAX_AUDIO_DURATION_SECONDS=300
 ```
 
-Create `mobile/.env`:
+Create `mobile/.env.local`:
 
 ```env
-EXPO_PUBLIC_API_URL=http://localhost:8020
+EXPO_PUBLIC_API_URL=http://YOUR_MAC_IP:8020
 ```
 
 ### 2. Run the backend
@@ -131,14 +140,20 @@ Voxly/
 │   │   ├── index.tsx            # Splash screen + API health check
 │   │   ├── home.tsx             # Notes feed with search & filters
 │   │   ├── record.tsx           # Recording screen with waveform
-│   │   └── note/[id].tsx        # Note detail + checkbox save
+│   │   ├── settings.tsx         # Profile, name, summary style, logout
+│   │   ├── note/[id].tsx        # Note detail + checkbox save
+│   │   └── auth/
+│   │       ├── email.tsx        # Email input screen
+│   │       └── otp.tsx          # 6-digit OTP verification
 │   ├── components/
 │   │   ├── Logo.tsx             # Animated bar logo
 │   │   ├── Waveform.tsx         # Live waveform visualiser
 │   │   ├── NoteCard.tsx         # Note list card
 │   │   └── StructuredOutput.tsx # Summary / key points / action items
+│   ├── contexts/
+│   │   ├── auth.tsx             # Token + user stored in SecureStore
+│   │   └── theme.tsx            # Dark/light theme context
 │   ├── services/api.ts          # All backend API calls
-│   ├── contexts/theme.tsx       # Dark/light theme context
 │   └── types/index.ts           # Shared TypeScript types
 ├── .gitignore
 └── docker-compose.yml
@@ -148,12 +163,17 @@ Voxly/
 
 ## API Reference
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | Health check |
-| `POST` | `/transcribe` | Upload audio → structured note |
-| `GET` | `/notes` | List all notes |
-| `GET` | `/notes/{id}` | Get a single note |
-| `PATCH` | `/notes/{id}` | Update note (e.g. completed action items) |
-| `DELETE` | `/notes/{id}` | Delete a note |
-| `GET` | `/notes/search?q=` | Full-text search |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/health` | None | Health check |
+| `POST` | `/auth/send-otp` | None | Send 6-digit OTP to email |
+| `POST` | `/auth/verify-otp` | None | Verify OTP → returns tokens |
+| `POST` | `/auth/refresh` | None | Refresh access token |
+| `POST` | `/transcribe` | Bearer | Upload audio → structured note |
+| `GET` | `/notes` | Bearer | List all notes |
+| `GET` | `/notes/search?q=` | Bearer | Full-text search |
+| `GET` | `/notes/{id}` | Bearer | Get a single note |
+| `PATCH` | `/notes/{id}` | Bearer | Update note |
+| `DELETE` | `/notes/{id}` | Bearer | Delete a note |
+| `GET` | `/me` | Bearer | Get user profile |
+| `PATCH` | `/me` | Bearer | Update name / summary style |
