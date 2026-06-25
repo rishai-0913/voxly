@@ -7,9 +7,10 @@ on:
 
 jobs:
   update:
-    name: Publish EAS Update
+    name: Publish EAS Update (Expo Go)
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
