@@ -13,6 +13,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/auth";
+import { useTheme } from "../contexts/theme";
 import { getMe, updateMe, UserProfile } from "../services/api";
 
 const STYLES: { key: UserProfile["summary_style"]; label: string; desc: string }[] = [
@@ -24,6 +25,47 @@ const STYLES: { key: UserProfile["summary_style"]; label: string; desc: string }
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
+  const { dark } = useTheme();
+
+  const bg         = dark ? "#0C0E14"   : "#F5F4FF";
+  const surface    = dark ? "#1A1D27"   : "#FFFFFF";
+  const surface2   = dark ? "#232638"   : "#E8E6F8";
+  const textPrim   = dark ? "#F0F2FF"   : "#0C0E14";
+  const textSecond = dark ? "#6B7280"   : "#6B7280";
+  const dividerCol = dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
+  const sheetBg    = dark ? "#1A1D27"   : "#FFFFFF";
+  const sheetHandle = dark ? "#2A2D3A"  : "#E8E6F8";
+
+  const sectionLabel = {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 11,
+    color: textSecond,
+    letterSpacing: 1.2,
+    paddingHorizontal: 20,
+    marginBottom: 8,
+  };
+  const card = {
+    marginHorizontal: 16,
+    backgroundColor: surface,
+    borderRadius: 16,
+    overflow: "hidden" as const,
+  };
+  const row = {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  };
+  const iconWrap = {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: surface2,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  };
+  const divider = { height: 1, backgroundColor: dividerCol, marginLeft: 64 };
+  const rowLabel = { fontFamily: "DMSans_400Regular", fontSize: 12, color: textSecond, marginBottom: 2 };
+  const rowValue = { fontFamily: "DMSans_400Regular", fontSize: 15, color: textPrim };
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [name, setName] = useState("");
@@ -79,7 +121,7 @@ export default function SettingsScreen() {
   const currentStyle = STYLES.find((s) => s.key === profile?.summary_style) ?? STYLES[0];
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0C0E14" }}>
+    <View style={{ flex: 1, backgroundColor: bg }}>
       <ScrollView
         contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }}
       >
@@ -89,14 +131,14 @@ export default function SettingsScreen() {
             onPress={() => router.back()}
             style={{
               width: 40, height: 40, borderRadius: 12,
-              backgroundColor: "#1A1D27",
+              backgroundColor: surface,
               alignItems: "center", justifyContent: "center",
               marginRight: 16,
             }}
           >
-            <Ionicons name="arrow-back" size={20} color="#F0F2FF" />
+            <Ionicons name="arrow-back" size={20} color={textPrim} />
           </Pressable>
-          <Text style={{ fontFamily: "Syne_700Bold", fontSize: 26, color: "#F0F2FF", flex: 1 }}>
+          <Text style={{ fontFamily: "Syne_700Bold", fontSize: 26, color: textPrim, flex: 1 }}>
             Settings
           </Text>
           {saving && <ActivityIndicator color="#7B5CFA" size="small" />}
@@ -125,7 +167,7 @@ export default function SettingsScreen() {
                   returnKeyType="done"
                   placeholder="Your name"
                   placeholderTextColor="#4B5563"
-                  style={{ fontFamily: "DMSans_400Regular", fontSize: 15, color: "#F0F2FF", paddingVertical: 0 }}
+                  style={{ fontFamily: "DMSans_400Regular", fontSize: 15, color: textPrim, paddingVertical: 0 }}
                 />
               ) : (
                 <Text style={[rowValue, !name && { color: "#4B5563", fontStyle: "italic" }]}>
@@ -187,21 +229,21 @@ export default function SettingsScreen() {
           onPress={() => setStylePickerOpen(false)}
         >
           <Pressable onPress={() => {}} style={{
-            backgroundColor: "#1A1D27",
+            backgroundColor: sheetBg,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             paddingBottom: insets.bottom + 8,
           }}>
             {/* Drag handle */}
-            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: "#2A2D3A", alignSelf: "center", marginTop: 12, marginBottom: 20 }} />
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: sheetHandle, alignSelf: "center", marginTop: 12, marginBottom: 20 }} />
 
-            <Text style={{ fontFamily: "Syne_700Bold", fontSize: 18, color: "#F0F2FF", paddingHorizontal: 24, marginBottom: 8 }}>
+            <Text style={{ fontFamily: "Syne_700Bold", fontSize: 18, color: textPrim, paddingHorizontal: 24, marginBottom: 8 }}>
               AI Summary Style
             </Text>
 
             {STYLES.map((s, i) => (
               <View key={s.key}>
-                {i > 0 && <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.05)", marginLeft: 24 }} />}
+                {i > 0 && <View style={{ height: 1, backgroundColor: dividerCol, marginLeft: 24 }} />}
                 <Pressable
                   onPress={() => selectStyle(s.key)}
                   style={{
@@ -212,13 +254,13 @@ export default function SettingsScreen() {
                   }}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 16, color: "#F0F2FF" }}>{s.label}</Text>
-                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: "#6B7280", marginTop: 3 }}>{s.desc}</Text>
+                    <Text style={{ fontFamily: "DMSans_500Medium", fontSize: 16, color: textPrim }}>{s.label}</Text>
+                    <Text style={{ fontFamily: "DMSans_400Regular", fontSize: 13, color: textSecond, marginTop: 3 }}>{s.desc}</Text>
                   </View>
                   <Ionicons
                     name={profile?.summary_style === s.key ? "checkmark-circle" : "ellipse-outline"}
                     size={22}
-                    color={profile?.summary_style === s.key ? "#7B5CFA" : "#2A2D3A"}
+                    color={profile?.summary_style === s.key ? "#7B5CFA" : surface2}
                   />
                 </Pressable>
               </View>
@@ -230,54 +272,3 @@ export default function SettingsScreen() {
   );
 }
 
-const sectionLabel: object = {
-  fontFamily: "DMSans_500Medium",
-  fontSize: 11,
-  color: "#6B7280",
-  letterSpacing: 1.2,
-  paddingHorizontal: 20,
-  marginBottom: 8,
-};
-
-const card: object = {
-  marginHorizontal: 16,
-  backgroundColor: "#1A1D27",
-  borderRadius: 16,
-  overflow: "hidden",
-};
-
-const row: object = {
-  flexDirection: "row",
-  alignItems: "center",
-  paddingHorizontal: 16,
-  paddingVertical: 14,
-  gap: 12,
-};
-
-const iconWrap: object = {
-  width: 36,
-  height: 36,
-  borderRadius: 10,
-  backgroundColor: "#232638",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const divider: object = {
-  height: 1,
-  backgroundColor: "rgba(255,255,255,0.05)",
-  marginLeft: 64,
-};
-
-const rowLabel: object = {
-  fontFamily: "DMSans_400Regular",
-  fontSize: 12,
-  color: "#6B7280",
-  marginBottom: 2,
-};
-
-const rowValue: object = {
-  fontFamily: "DMSans_400Regular",
-  fontSize: 15,
-  color: "#F0F2FF",
-};
