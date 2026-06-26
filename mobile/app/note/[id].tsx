@@ -56,7 +56,9 @@ export default function NoteDetailScreen() {
   const textPrimary = dark ? "#F0F2FF" : "#0C0E14";
 
   useEffect(() => {
+    toastY.setValue(-80);
     if (!id) return;
+    setLoading(true);
     getNote(id)
       .then((n) => {
         setNote(n);
