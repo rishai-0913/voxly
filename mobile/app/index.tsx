@@ -47,17 +47,20 @@ export default function SplashScreen() {
   }, []);
 
   const checkHealth = useCallback(async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      const res = await fetch(`${BASE_URL}/health`, { signal: controller.signal });
+      const fetchPromise = fetch(`${BASE_URL}/health`);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS)
+      );
+      const res = await Promise.race([fetchPromise, timeoutPromise]);
       if (res.ok) {
         retryCount.current = 0;
         setApiStatus("ok");
       } else {
-        throw new Error("bad status");
+        throw new Error(`bad status ${res.status}`);
       }
     } catch (e: any) {
+      console.log(`[health] attempt ${retryCount.current} failed — name:${e?.name} msg:${e?.message}`);
       if (retryCount.current < MAX_RETRIES) {
         retryCount.current += 1;
         setApiStatus("warming");
@@ -66,8 +69,6 @@ export default function SplashScreen() {
         setApiStatus("error");
         setErrorMsg("Can't reach the server. Check your connection and try again.");
       }
-    } finally {
-      clearTimeout(timeout);
     }
   }, []);
 
