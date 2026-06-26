@@ -48,7 +48,7 @@ export default function NoteDetailScreen() {
   const [completedItems, setCompletedItems] = useState<number[]>([]);
   const savedItemsRef = useRef<number[]>([]);
 
-  const toastY = useRef(new Animated.Value(-80)).current;
+  const toastY = useRef(new Animated.Value(-150)).current;
 
   const bg = dark ? "#0C0E14" : "#F5F4FF";
   const surface = dark ? "#151820" : "#FFFFFF";
@@ -56,7 +56,9 @@ export default function NoteDetailScreen() {
   const textPrimary = dark ? "#F0F2FF" : "#0C0E14";
 
   useEffect(() => {
+    toastY.setValue(-150);
     if (!id) return;
+    setLoading(true);
     getNote(id)
       .then((n) => {
         setNote(n);
@@ -85,7 +87,7 @@ export default function NoteDetailScreen() {
       Animated.sequence([
         Animated.spring(toastY, { toValue: 0, useNativeDriver: true, speed: 20, bounciness: 6 }),
         Animated.delay(1200),
-        Animated.timing(toastY, { toValue: -80, duration: 250, useNativeDriver: true }),
+        Animated.timing(toastY, { toValue: -150, duration: 250, useNativeDriver: true }),
       ]).start(() => resolve());
     });
 

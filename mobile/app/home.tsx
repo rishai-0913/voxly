@@ -224,31 +224,42 @@ export default function HomeScreen() {
       </View>
 
       {/* Filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingVertical: 8 }}
-      >
-        {filters.map((f) => (
-          <Pressable
-            key={f}
-            onPress={() => handleFilterChange(f)}
-            style={{
-              height: 32, paddingHorizontal: 16,
-              borderRadius: 999,
-              backgroundColor: activeFilter === f ? "#7B5CFA" : chipBg,
-              alignItems: "center", justifyContent: "center",
-            }}
-          >
-            <Text
-              className="text-xs font-dm-sans-medium"
-              style={{ color: activeFilter === f ? "#FFFFFF" : "#6B7280" }}
+      <View style={{ position: "relative" }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingVertical: 8 }}
+        >
+          {filters.map((f) => (
+            <Pressable
+              key={f}
+              onPress={() => handleFilterChange(f)}
+              style={{
+                height: 32, paddingHorizontal: 16,
+                borderRadius: 999,
+                backgroundColor: activeFilter === f ? "#7B5CFA" : chipBg,
+                alignItems: "center", justifyContent: "center",
+              }}
             >
-              {f === "All" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+              <Text
+                className="text-xs font-dm-sans-medium"
+                style={{ color: activeFilter === f ? "#FFFFFF" : "#6B7280" }}
+              >
+                {f === "All" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        {/* Right-edge fade to signal more chips */}
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute", right: 0, top: 0, bottom: 0, width: 32,
+            backgroundColor: bg,
+            opacity: 0.85,
+          }}
+        />
+      </View>
 
       {/* Notes list — always rendered so pull-to-refresh works on all states */}
       <FlatList
