@@ -6,7 +6,11 @@ import Logo from "../components/Logo";
 import { BASE_URL } from "../services/api";
 import { useAuth } from "../contexts/auth";
 
-type ApiStatus = "checking" | "ok" | "error";
+type ApiStatus = "checking" | "warming" | "ok" | "error";
+
+const MAX_RETRIES = 4;
+const RETRY_DELAY_MS = 8000;
+const TIMEOUT_MS = 55000;
 
 export default function SplashScreen() {
   const insets = useSafeAreaInsets();
@@ -15,6 +19,7 @@ export default function SplashScreen() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
   const [animDone, setAnimDone] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const retryCount = useRef(0);
 
   const logoOpacity    = useRef(new Animated.Value(0)).current;
   const logoScale      = useRef(new Animated.Value(0.82)).current;
@@ -41,25 +46,26 @@ export default function SplashScreen() {
     ]).start(() => setAnimDone(true));
   }, []);
 
-  // Health check with 8s timeout
   const checkHealth = useCallback(async () => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
       const res = await fetch(`${BASE_URL}/health`, { signal: controller.signal });
       if (res.ok) {
+        retryCount.current = 0;
         setApiStatus("ok");
       } else {
-        setApiStatus("error");
-        setErrorMsg("Server returned an unexpected error. Try again.");
+        throw new Error("bad status");
       }
     } catch (e: any) {
-      setApiStatus("error");
-      setErrorMsg(
-        e?.name === "AbortError"
-          ? "Server is taking too long to respond."
-          : "Can't connect to the Voxly server."
-      );
+      if (retryCount.current < MAX_RETRIES) {
+        retryCount.current += 1;
+        setApiStatus("warming");
+        setTimeout(checkHealth, RETRY_DELAY_MS);
+      } else {
+        setApiStatus("error");
+        setErrorMsg("Can't reach the server. Check your connection and try again.");
+      }
     } finally {
       clearTimeout(timeout);
     }
@@ -67,9 +73,8 @@ export default function SplashScreen() {
 
   useEffect(() => { checkHealth(); }, [checkHealth]);
 
-  // Navigate or show error once animation is done AND API has responded AND auth loaded
   useEffect(() => {
-    if (!animDone || apiStatus === "checking" || authLoading) return;
+    if (!animDone || apiStatus === "checking" || apiStatus === "warming" || authLoading) return;
 
     if (apiStatus === "ok") {
       Animated.timing(containerOpacity, {
@@ -97,6 +102,7 @@ export default function SplashScreen() {
       Animated.timing(errorOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
       Animated.timing(errorY,       { toValue: 16, duration: 180, useNativeDriver: true }),
     ]).start();
+    retryCount.current = 0;
     setApiStatus("checking");
     await checkHealth();
   }, [checkHealth]);
@@ -150,6 +156,19 @@ export default function SplashScreen() {
       >
         Voice. Structured. Instant.
       </Animated.Text>
+
+      {/* Warming up indicator */}
+      {apiStatus === "warming" && (
+        <Text style={{
+          position: "absolute",
+          bottom: insets.bottom + 44,
+          fontFamily: "DMSans_400Regular",
+          fontSize: 13,
+          color: "#4B5563",
+        }}>
+          Warming up server…
+        </Text>
+      )}
 
       {/* Error banner — fades in from below if API unreachable */}
       <Animated.View
