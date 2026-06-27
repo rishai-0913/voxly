@@ -28,6 +28,18 @@ jobs:
         working-directory: mobile
         run: npm ci --legacy-peer-deps
 
+      - name: Bump version
+        working-directory: mobile
+        run: |
+          node -e "
+            const fs = require('fs');
+            const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+            const [major, minor] = app.expo.version.split('.').map(Number);
+            app.expo.version = major + '.' + minor + '.' + ${{ github.run_number }};
+            fs.writeFileSync('app.json', JSON.stringify(app, null, 2));
+            console.log('Version set to', app.expo.version);
+          "
+
       - name: Build APK
         working-directory: mobile
         run: eas build --platform android --profile preview --non-interactive
