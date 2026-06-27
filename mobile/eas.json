@@ -14,14 +14,20 @@
         "autoIncrement": true
       },
       "distribution": "internal",
-      "channel": "preview"
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://voxly-ybte.onrender.com"
+      }
     },
     "production": {
       "android": {
         "buildType": "app-bundle",
         "autoIncrement": true
       },
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://voxly-ybte.onrender.com"
+      }
     }
   },
   "submit": {
