@@ -60,7 +60,7 @@ export default function SplashScreen() {
         throw new Error(`bad status ${res.status}`);
       }
     } catch (e: any) {
-      console.log(`[health] attempt ${retryCount.current} failed — name:${e?.name} msg:${e?.message}`);
+      console.log(`[health] attempt ${retryCount.current} failed — url:${BASE_URL} name:${e?.name} msg:${e?.message}`);
       if (retryCount.current < MAX_RETRIES) {
         retryCount.current += 1;
         setApiStatus("warming");

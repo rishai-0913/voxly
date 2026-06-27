@@ -2,7 +2,7 @@ name: Keep backend alive
 
 on:
   schedule:
-    - cron: "*/10 23,0-16 * * *"  # every 10 min, 5 AM–10 PM IST (23:30–16:30 UTC)
+    - cron: "*/10 * * * *"  # every 10 minutes
   workflow_dispatch:
 
 jobs:
