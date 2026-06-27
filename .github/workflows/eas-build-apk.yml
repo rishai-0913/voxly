@@ -2,14 +2,25 @@ name: EAS Build APK (manual)
 
 on:
   workflow_dispatch:
+    inputs:
+      version_bump:
+        description: "Version bump type"
+        required: true
+        default: "patch"
+        type: choice
+        options: [patch, minor, major]
 
 jobs:
   build-apk:
     name: Build Android APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: dev
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -28,17 +39,25 @@ jobs:
         working-directory: mobile
         run: npm ci --legacy-peer-deps
 
-      - name: Bump version
-        working-directory: mobile
+      - name: Bump version and commit
         run: |
           node -e "
             const fs = require('fs');
-            const app = JSON.parse(fs.readFileSync('app.json', 'utf8'));
-            const [major, minor] = app.expo.version.split('.').map(Number);
-            app.expo.version = major + '.' + minor + '.' + ${{ github.run_number }};
-            fs.writeFileSync('app.json', JSON.stringify(app, null, 2));
-            console.log('Version set to', app.expo.version);
+            const app = JSON.parse(fs.readFileSync('mobile/app.json', 'utf8'));
+            let [major, minor, patch] = app.expo.version.split('.').map(Number);
+            const bump = '${{ github.event.inputs.version_bump }}';
+            if (bump === 'major') { major++; minor = 0; patch = 0; }
+            else if (bump === 'minor') { minor++; patch = 0; }
+            else { patch++; }
+            app.expo.version = major + '.' + minor + '.' + patch;
+            fs.writeFileSync('mobile/app.json', JSON.stringify(app, null, 2) + '\n');
+            console.log('Version bumped to', app.expo.version);
           "
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add mobile/app.json
+          git commit -m "chore: bump version to $(node -p "require('./mobile/app.json').expo.version")"
+          git push origin dev
 
       - name: Build APK
         working-directory: mobile
